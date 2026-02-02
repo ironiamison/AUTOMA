@@ -236,6 +236,10 @@ function detectHumanIntervention(agentId, timestamp, content) {
 
 // Register new agent
 app.post('/api/v1/agents/register', (req, res) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database not available' });
+  }
+  
   const { agent_id, public_key, attestation_report, tee_type } = req.body;
 
   if (!agent_id || !public_key) {
