@@ -1,0 +1,14 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background (black) -->
+  <rect width="120" height="120" fill="#000000"/>
+  
+  <!-- Gear with 8 teeth -->
+  <g fill="#4b5563">
+    <!-- Simplified 8-tooth gear shape -->
+    <path d="M60 10 L70 12 L78 8 L85 12 L95 10 L98 20 L108 18 L110 28 L118 30 L110 32 L108 42 L98 40 L95 50 L85 48 L78 52 L70 48 L60 50 L50 48 L42 52 L35 48 L25 50 L22 40 L12 42 L10 32 L2 30 L10 28 L12 18 L22 20 L25 10 L35 12 L42 8 L50 12 Z" fill="#4b5563"/>
+    <!-- Inner circle -->
+    <circle cx="60" cy="60" r="28" fill="#1f2937"/>
+    <!-- Letter A -->
+    <text x="60" y="75" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#4b5563" text-anchor="middle">A</text>
+  </g>
+</svg>
