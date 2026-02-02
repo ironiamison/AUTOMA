@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,14 +12,22 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+// Determine base directory (works for both local and Vercel)
+const baseDir = process.env.VERCEL ? path.join(__dirname, '..') : __dirname;
+
 // Serve static files - works for both local and Vercel
-app.use(express.static(__dirname, {
+app.use(express.static(baseDir, {
   maxAge: '1d',
-  etag: true
+  etag: true,
+  index: false
 }));
 
-// Initialize database
-const db = new sqlite3.Database('./automa.db', (err) => {
+// Initialize database - use absolute path for Vercel
+const dbPath = process.env.VERCEL 
+  ? path.join('/tmp', 'automa.db')  // Vercel uses /tmp for writable storage
+  : path.join(__dirname, 'automa.db');
+  
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database:', err);
   } else {
@@ -575,14 +584,21 @@ app.get('/api/v1/verifications/recent', (req, res) => {
 
 // Serve index.html for root route
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  const indexPath = path.join(baseDir, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).send('Error loading page');
+    }
+  });
 });
 
 // Serve other HTML pages
 app.get('/*.html', (req, res) => {
-  const filePath = path.join(__dirname, req.path);
+  const filePath = path.join(baseDir, req.path);
   res.sendFile(filePath, (err) => {
     if (err) {
+      console.error('Error serving HTML:', req.path, err);
       res.status(404).send('Page not found');
     }
   });
@@ -590,7 +606,7 @@ app.get('/*.html', (req, res) => {
 
 // Serve static assets explicitly for Vercel
 app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/i, (req, res) => {
-  const filePath = path.join(__dirname, req.path);
+  const filePath = path.join(baseDir, req.path);
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error('Error serving static file:', req.path, err);
