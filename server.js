@@ -13,18 +13,31 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 // Determine base directory (works for both local and Vercel)
-// In Vercel, __dirname is /var/task/api, so we go up one level to /var/task
-const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
-// For Vercel, files are in /var/task (one level up from /var/task/api)
-// But we need to check if we're actually in the api folder
+// In Vercel serverless, __dirname is /var/task/api when running from api/index.js
+// Files are deployed to /var/task, so we need to go up one level
+const isVercel = !!(process.env.VERCEL || process.env.VERCEL_ENV);
 let baseDir = __dirname;
-if (isVercel) {
-  // If __dirname ends with /api, go up one level
-  if (__dirname.endsWith('/api') || __dirname.endsWith(path.join(path.sep, 'api'))) {
-    baseDir = path.join(__dirname, '..');
+
+// If we're in Vercel and __dirname contains '/api', go up one level
+if (isVercel && (__dirname.includes('/api') || __dirname.endsWith('api'))) {
+  baseDir = path.resolve(__dirname, '..');
+}
+
+// Fallback: try to detect if we're in a serverless environment
+if (!fs.existsSync(path.join(baseDir, 'index.html'))) {
+  // Try going up one level
+  const parentDir = path.resolve(__dirname, '..');
+  if (fs.existsSync(path.join(parentDir, 'index.html'))) {
+    baseDir = parentDir;
   }
 }
-console.log('Environment:', { isVercel, __dirname, baseDir });
+
+console.log('Server init:', { 
+  isVercel, 
+  __dirname, 
+  baseDir,
+  hasIndex: fs.existsSync(path.join(baseDir, 'index.html'))
+});
 
 // Serve static files - works for both local and Vercel
 app.use(express.static(baseDir, {
@@ -594,27 +607,30 @@ app.get('/api/v1/verifications/recent', (req, res) => {
   );
 });
 
+// Helper function to find file with fallbacks
+function findFile(filename) {
+  const paths = [
+    path.join(baseDir, filename),
+    path.join(__dirname, filename),
+    path.join(__dirname, '..', filename),
+    path.join('/var/task', filename)
+  ];
+  
+  for (const filePath of paths) {
+    if (fs.existsSync(filePath)) {
+      return filePath;
+    }
+  }
+  return null;
+}
+
 // Serve index.html for root route
 app.get('/', (req, res) => {
-  const indexPath = path.join(baseDir, 'index.html');
-  console.log('Serving index.html from:', indexPath);
+  const indexPath = findFile('index.html');
   
-  // Check if file exists
-  if (!fs.existsSync(indexPath)) {
-    console.error('index.html not found at:', indexPath);
-    // Try alternative paths
-    const altPaths = [
-      path.join(__dirname, 'index.html'),
-      path.join(__dirname, '..', 'index.html'),
-      '/var/task/index.html'
-    ];
-    for (const altPath of altPaths) {
-      if (fs.existsSync(altPath)) {
-        console.log('Found index.html at alternative path:', altPath);
-        return res.sendFile(altPath);
-      }
-    }
-    return res.status(500).send('Error: index.html not found');
+  if (!indexPath) {
+    console.error('index.html not found. Tried:', baseDir, __dirname);
+    return res.status(500).send('Error: index.html not found. Check server logs.');
   }
   
   res.sendFile(indexPath, (err) => {
@@ -627,7 +643,14 @@ app.get('/', (req, res) => {
 
 // Serve other HTML pages
 app.get('/*.html', (req, res) => {
-  const filePath = path.join(baseDir, req.path);
+  const filename = path.basename(req.path);
+  const filePath = findFile(filename);
+  
+  if (!filePath) {
+    console.error('HTML file not found:', req.path);
+    return res.status(404).send('Page not found');
+  }
+  
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error('Error serving HTML:', req.path, err);
@@ -638,27 +661,18 @@ app.get('/*.html', (req, res) => {
 
 // Serve static assets explicitly for Vercel
 app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/i, (req, res) => {
-  const filePath = path.join(baseDir, req.path);
+  // Remove leading slash for path joining
+  const cleanPath = req.path.startsWith('/') ? req.path.slice(1) : req.path;
+  const filePath = findFile(cleanPath);
   
-  // Try multiple paths if file doesn't exist
-  let finalPath = filePath;
-  if (!fs.existsSync(filePath)) {
-    const altPaths = [
-      path.join(__dirname, req.path),
-      path.join(__dirname, '..', req.path),
-      path.join('/var/task', req.path)
-    ];
-    for (const altPath of altPaths) {
-      if (fs.existsSync(altPath)) {
-        finalPath = altPath;
-        break;
-      }
-    }
+  if (!filePath) {
+    console.error('Static file not found:', req.path);
+    return res.status(404).send('File not found');
   }
   
-  res.sendFile(finalPath, (err) => {
+  res.sendFile(filePath, (err) => {
     if (err) {
-      console.error('Error serving static file:', req.path, 'tried:', finalPath, err);
+      console.error('Error serving static file:', req.path, err);
       res.status(404).send('File not found');
     }
   });
