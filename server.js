@@ -588,12 +588,13 @@ app.get('/*.html', (req, res) => {
   });
 });
 
-// Serve static assets (CSS, JS, images) - fallback for Vercel
-app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/, (req, res, next) => {
+// Serve static assets explicitly for Vercel
+app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/i, (req, res) => {
   const filePath = path.join(__dirname, req.path);
   res.sendFile(filePath, (err) => {
     if (err) {
-      next(); // Continue to next middleware
+      console.error('Error serving static file:', req.path, err);
+      res.status(404).send('File not found');
     }
   });
 });
