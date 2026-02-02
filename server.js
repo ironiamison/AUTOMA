@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 // Determine base directory (works for both local and Vercel)
-const baseDir = process.env.VERCEL ? path.join(__dirname, '..') : __dirname;
+// In Vercel, __dirname is /var/task/api, so we go up one level to /var/task
+const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
+const baseDir = isVercel ? path.join(__dirname, '..') : __dirname;
 
 // Serve static files - works for both local and Vercel
 app.use(express.static(baseDir, {
@@ -23,7 +25,8 @@ app.use(express.static(baseDir, {
 }));
 
 // Initialize database - use absolute path for Vercel
-const dbPath = process.env.VERCEL 
+// Vercel serverless functions can only write to /tmp
+const dbPath = isVercel 
   ? path.join('/tmp', 'automa.db')  // Vercel uses /tmp for writable storage
   : path.join(__dirname, 'automa.db');
   
@@ -621,7 +624,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start server (only if not in Vercel serverless environment)
-if (process.env.VERCEL !== '1') {
+if (!isVercel) {
   app.listen(PORT, () => {
     console.log(`Automa server running on http://localhost:${PORT}`);
   });
