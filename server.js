@@ -581,7 +581,21 @@ app.get('/', (req, res) => {
 // Serve other HTML pages
 app.get('/*.html', (req, res) => {
   const filePath = path.join(__dirname, req.path);
-  res.sendFile(filePath);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      res.status(404).send('Page not found');
+    }
+  });
+});
+
+// Serve static assets (CSS, JS, images) - fallback for Vercel
+app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/, (req, res, next) => {
+  const filePath = path.join(__dirname, req.path);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      next(); // Continue to next middleware
+    }
+  });
 });
 
 // Health check
