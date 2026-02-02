@@ -50,19 +50,32 @@ app.use(express.static(baseDir, {
 // Vercel serverless functions can only write to /tmp
 const dbPath = isVercel 
   ? path.join('/tmp', 'automa.db')  // Vercel uses /tmp for writable storage
-  : path.join(__dirname, 'automa.db');
+  : path.join(baseDir, 'automa.db');
   
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err);
-  } else {
-    console.log('Connected to SQLite database');
-    initDatabase();
-  }
-});
+let db;
+try {
+  db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Error opening database:', err);
+      // Don't crash - continue without database (read-only mode)
+    } else {
+      console.log('Connected to SQLite database at:', dbPath);
+      initDatabase();
+    }
+  });
+} catch (err) {
+  console.error('Failed to initialize database:', err);
+  // Create a dummy db object to prevent crashes
+  db = null;
+}
 
 // Initialize database schema
 function initDatabase() {
+  if (!db) {
+    console.error('Cannot initialize database - db is null');
+    return;
+  }
+  
   db.serialize(() => {
     // Agents table
     db.run(`CREATE TABLE IF NOT EXISTS agents (
