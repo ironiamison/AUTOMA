@@ -11,14 +11,11 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-// Serve static files
-// In Vercel, static files are served automatically, but we need this for local dev
-if (process.env.VERCEL !== '1') {
-  app.use(express.static(__dirname));
-} else {
-  // For Vercel, serve static files from the function's directory
-  app.use(express.static(path.join(__dirname)));
-}
+// Serve static files - works for both local and Vercel
+app.use(express.static(__dirname, {
+  maxAge: '1d',
+  etag: true
+}));
 
 // Initialize database
 const db = new sqlite3.Database('./automa.db', (err) => {
