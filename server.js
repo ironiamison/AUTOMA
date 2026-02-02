@@ -11,7 +11,8 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static('.'));
+// Serve static files
+app.use(express.static(__dirname));
 
 // Initialize database
 const db = new sqlite3.Database('./automa.db', (err) => {
