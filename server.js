@@ -600,7 +600,6 @@ app.get('/', (req, res) => {
   console.log('Serving index.html from:', indexPath);
   
   // Check if file exists
-  const fs = require('fs');
   if (!fs.existsSync(indexPath)) {
     console.error('index.html not found at:', indexPath);
     // Try alternative paths
@@ -640,7 +639,6 @@ app.get('/*.html', (req, res) => {
 // Serve static assets explicitly for Vercel
 app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/i, (req, res) => {
   const filePath = path.join(baseDir, req.path);
-  const fs = require('fs');
   
   // Try multiple paths if file doesn't exist
   let finalPath = filePath;
