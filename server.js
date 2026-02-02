@@ -15,7 +15,16 @@ app.use(bodyParser.json());
 // Determine base directory (works for both local and Vercel)
 // In Vercel, __dirname is /var/task/api, so we go up one level to /var/task
 const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
-const baseDir = isVercel ? path.join(__dirname, '..') : __dirname;
+// For Vercel, files are in /var/task (one level up from /var/task/api)
+// But we need to check if we're actually in the api folder
+let baseDir = __dirname;
+if (isVercel) {
+  // If __dirname ends with /api, go up one level
+  if (__dirname.endsWith('/api') || __dirname.endsWith(path.join(path.sep, 'api'))) {
+    baseDir = path.join(__dirname, '..');
+  }
+}
+console.log('Environment:', { isVercel, __dirname, baseDir });
 
 // Serve static files - works for both local and Vercel
 app.use(express.static(baseDir, {
@@ -588,10 +597,31 @@ app.get('/api/v1/verifications/recent', (req, res) => {
 // Serve index.html for root route
 app.get('/', (req, res) => {
   const indexPath = path.join(baseDir, 'index.html');
+  console.log('Serving index.html from:', indexPath);
+  
+  // Check if file exists
+  const fs = require('fs');
+  if (!fs.existsSync(indexPath)) {
+    console.error('index.html not found at:', indexPath);
+    // Try alternative paths
+    const altPaths = [
+      path.join(__dirname, 'index.html'),
+      path.join(__dirname, '..', 'index.html'),
+      '/var/task/index.html'
+    ];
+    for (const altPath of altPaths) {
+      if (fs.existsSync(altPath)) {
+        console.log('Found index.html at alternative path:', altPath);
+        return res.sendFile(altPath);
+      }
+    }
+    return res.status(500).send('Error: index.html not found');
+  }
+  
   res.sendFile(indexPath, (err) => {
     if (err) {
       console.error('Error serving index.html:', err);
-      res.status(500).send('Error loading page');
+      res.status(500).send('Error loading page: ' + err.message);
     }
   });
 });
@@ -610,9 +640,27 @@ app.get('/*.html', (req, res) => {
 // Serve static assets explicitly for Vercel
 app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/i, (req, res) => {
   const filePath = path.join(baseDir, req.path);
-  res.sendFile(filePath, (err) => {
+  const fs = require('fs');
+  
+  // Try multiple paths if file doesn't exist
+  let finalPath = filePath;
+  if (!fs.existsSync(filePath)) {
+    const altPaths = [
+      path.join(__dirname, req.path),
+      path.join(__dirname, '..', req.path),
+      path.join('/var/task', req.path)
+    ];
+    for (const altPath of altPaths) {
+      if (fs.existsSync(altPath)) {
+        finalPath = altPath;
+        break;
+      }
+    }
+  }
+  
+  res.sendFile(finalPath, (err) => {
     if (err) {
-      console.error('Error serving static file:', req.path, err);
+      console.error('Error serving static file:', req.path, 'tried:', finalPath, err);
       res.status(404).send('File not found');
     }
   });
