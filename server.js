@@ -32,18 +32,13 @@ if (!fs.existsSync(path.join(baseDir, 'index.html'))) {
   }
 }
 
-console.log('Server init:', { 
-  isVercel, 
-  __dirname, 
-  baseDir,
-  hasIndex: fs.existsSync(path.join(baseDir, 'index.html'))
-});
-
 // Serve static files - works for both local and Vercel
+// This MUST come before routes to serve CSS/JS/images
 app.use(express.static(baseDir, {
   maxAge: '1d',
   etag: true,
-  index: false
+  index: false,
+  dotfiles: 'ignore'
 }));
 
 // Initialize database - use absolute path for Vercel
@@ -676,21 +671,21 @@ app.get('/*.html', (req, res) => {
   });
 });
 
-// Serve static assets explicitly for Vercel
-app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/i, (req, res) => {
-  // Remove leading slash for path joining
+// Static assets should be handled by express.static middleware above
+// This route is a fallback only if express.static doesn't catch it
+app.get(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/i, (req, res, next) => {
+  // Let express.static handle it first, only use this as fallback
   const cleanPath = req.path.startsWith('/') ? req.path.slice(1) : req.path;
   const filePath = findFile(cleanPath);
   
   if (!filePath) {
-    console.error('Static file not found:', req.path);
-    return res.status(404).send('File not found');
+    return next(); // Let other middleware handle it
   }
   
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error('Error serving static file:', req.path, err);
-      res.status(404).send('File not found');
+      next();
     }
   });
 });
