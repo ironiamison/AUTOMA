@@ -581,6 +581,12 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Serve other HTML pages
+app.get('/*.html', (req, res) => {
+  const filePath = path.join(__dirname, req.path);
+  res.sendFile(filePath);
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
